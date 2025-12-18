@@ -67,6 +67,7 @@ let
       isStrict = if isBool (settings.strict or true) then settings.strict or true else true;
       extraOptions = if isAttrs (settings.extraOptions or null) then settings.extraOptions else { };
       specialArgs = if isAttrs (settings.specialArgs or null) then settings.specialArgs else { };
+      dataTypeFn = if isFunction (settings.dataTypeFn or null) then settings.dataTypeFn else x: _: x;
       defaultNameFn =
         if isFunction (settings.defaultNameFn or null) then
           settings.defaultNameFn
@@ -84,7 +85,7 @@ let
               true;
           modules = [
             (
-              # NOTE: if name is not declared, it doesnt get added.
+              # NOTE: if name is not declared, it doesnt get added for defaultNameFn or dataTypeFn
               { config, name, ... }@args:
               (if isStrict then { } else { freeformType = wlib.types.attrsRecursive; })
               // {
@@ -93,7 +94,7 @@ let
                     type = types.nullOr types.str;
                     default = defaultNameFn args;
                   };
-                  data = mkOption { type = elemType; };
+                  data = mkOption { type = dataTypeFn elemType args; };
                   after = mkOption {
                     type = with types; listOf str;
                     default = [ ];
@@ -103,7 +104,7 @@ let
                     default = [ ];
                   };
                 };
-                config = mkIf (elemType.name == "submodule") {
+                config = mkIf (elemType.name == "submodule" && !isFunction (settings.dataTypeFn or null)) {
                   data._module.args.dagName = config.name;
                 };
               }
@@ -118,6 +119,7 @@ let
           "specialArgs"
           "shorthandOnlyDefinesConfig"
           "defaultNameFn"
+          "dataTypeFn"
         ]
       );
       knownKeys = [
@@ -209,8 +211,10 @@ in
              - Each key is a proper `lib.mkOption` that will be merged into the DAG entry type.
              - Provides type checking, defaults, and documentation of that field's addition to the entry type.
           - Both forms can be combined in the same set.
-        - `defaultNameFn ? ({ config, name, isDal, ... }: if isDal then null else name)`
+        - `defaultNameFn ? ({ config, name, isDal, ... }@moduleArgs: if isDal then null else name)`
           Function to compute the default `name` for entries. Recieves the submodule arguments.
+        - `dataTypeFn` ? `(elemType: { config, name, isDal, ... }@moduleArgs: elemType)`
+          Can be used if the type of the `data` field needs to depend upon the submodule arguments.
         - ...other arguments for `lib.types.submoduleWith`
           Passed through to configure submodules in the DAG entries.
 
@@ -227,7 +231,7 @@ in
         You will need to do this yourself by passing `modules = [ (<your module here>) ];`
       - `mkOption` values provided here are merged directly into the submodule type.
     - The `config.optionname` value from the associated option will be normalized so that all items become valid DAG entries.
-    - If `elemType` is a submodule, a `dagName` argument will automatically be injected to retain the actual attribute name.
+    - If `elemType` is a submodule, and `dataTypeFn` is not provided, a `dagName` argument will automatically be injected to access the actual attribute name.
   */
   dagWith =
     settings: elemType:
@@ -300,8 +304,10 @@ in
              - Each key is a proper `lib.mkOption` that will be merged into the DAG entry type.
              - Provides type checking, defaults, and documentation of that field's addition to the entry type.
           - Both forms can be combined in the same set.
-        - `defaultNameFn ? ({ config, name, isDal, ... }: if isDal then null else name)`
+        - `defaultNameFn ? ({ config, name, isDal, ... }@moduleArgs: if isDal then null else name)`
           Function to compute the default `name` for entries. Recieves the submodule arguments.
+        - `dataTypeFn` ? `(elemType: { config, name, isDal, ... }@moduleArgs: elemType)`
+          Can be used if the type of the `data` field needs to depend upon the submodule arguments.
         - ...other arguments for `lib.types.submoduleWith`
           Passed through to configure submodules in the DAG entries.
 
@@ -318,7 +324,7 @@ in
         You will need to do this yourself by passing `modules = [ (<your module here>) ];`
       - `mkOption` values provided here are merged directly into the submodule type.
     - The `config.optionname` value from the associated option will be normalized so that all items become valid DAG entries.
-    - If `elemType` is a submodule, a `dagName` argument will automatically be injected to retain the actual attribute name.
+    - If `elemType` is a submodule, and `dataTypeFn` is not provided, a `dagName` argument will automatically be injected to access the actual attribute name.
   */
   dalWith =
     settings: elemType:
