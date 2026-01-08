@@ -219,40 +219,77 @@ in
         values from `config.overrides` applied to it.
       '';
     };
+    overmods = lib.mkOption {
+      type = lib.types.deferredModule;
+      default = { };
+      description = ''
+        Provide a module to modify the `wlib.types.spec` type in `config.overrides`.
+
+        You may use this to change default values, or provide additional options.
+      '';
+    };
     overrides = lib.mkOption {
       type =
         let
-          inherit (lib.types)
-            either
-            raw
-            enum
-            str
-            ;
-          base =
-            (
-              wlib.types.dalOf
-              // {
-                modules = [
-                  {
-                    options.type = lib.mkOption {
+          base = lib.types.listOf (
+            wlib.types.specWith {
+              specialArgs = { inherit wlib; };
+              modules = [
+                {
+                  options = {
+                    data = lib.mkOption {
+                      type = lib.types.raw;
+                      description = ''
+                        If type is null, then this is the function to call on the package.
+
+                        If type is a string, then this is the data to pass to the function corresponding with that attribute.
+                      '';
+                    };
+                    type = lib.mkOption {
                       type = lib.types.nullOr (
-                        either (enum [
+                        lib.types.either (lib.types.enum [
                           "override"
                           "overrideAttrs"
-                        ]) str
+                        ]) lib.types.str
                       );
                       default = null;
                       description = ''
                         The attribute of `config.package` to pass the override argument to.
+                        If `null`, then data receives and returns the package instead.
 
-                        If null, then data receives and returns the package instead.
+                        If `null`, data must be a function.
+                        If a `string`, `config.package` must have the corresponding attribute, and it must be a function.
                       '';
                     };
-                  }
-                ];
-              }
-            )
-              raw;
+                    name = lib.mkOption {
+                      type = lib.types.nullOr lib.types.str;
+                      default = null;
+                      description = ''
+                        The name for targeting from the before or after fields of other specs.
+
+                        If `null` it cannot be targeted by other specs.
+                      '';
+                    };
+                    before = lib.mkOption {
+                      type = lib.types.listOf lib.types.str;
+                      default = [ ];
+                      description = ''
+                        Items that this spec should be ordered before.
+                      '';
+                    };
+                    after = lib.mkOption {
+                      type = lib.types.listOf lib.types.str;
+                      default = [ ];
+                      description = ''
+                        Items that this spec should be ordered after.
+                      '';
+                    };
+                  };
+                }
+                config.overmods
+              ];
+            }
+          );
         in
         base
         // {
