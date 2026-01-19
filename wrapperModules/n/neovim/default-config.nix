@@ -354,12 +354,14 @@
       config.binName = "neovim-ruby-host";
     };
   config.extraPackages =
-    lib.mkIf (config.hosts.ruby.nvim-host.enable || config.hosts.node.nvim-host.enable)
+    lib.mkIf
+      (config.hosts.ruby.nvim-host.enable or false || config.hosts.node.nvim-host.enable or false)
       (
-        lib.optional config.hosts.ruby.nvim-host.enable config.hosts.ruby.wrapper
-        ++ lib.optional config.hosts.node.nvim-host.enable pkgs.nodejs
+        lib.optional (config.hosts.ruby.nvim-host.enable or false) config.hosts.ruby.wrapper
+        ++ lib.optional (config.hosts.node.nvim-host.enable or false) pkgs.nodejs
       );
-  config.env.GEM_HOME = lib.mkIf (config.hosts.ruby.nvim-host.enable) "${config.hosts.ruby.package}/${config.hosts.ruby.package.ruby.gemPath}";
+  config.env.GEM_HOME = lib.mkIf (config.hosts.ruby.nvim-host.enable or false
+  ) "${config.hosts.ruby.package}/${config.hosts.ruby.package.ruby.gemPath or pkgs.ruby.gemPath}";
   config.hosts.neovide =
     {
       lib,

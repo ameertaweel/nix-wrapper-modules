@@ -9,55 +9,49 @@
   ...
 }:
 let
-  mappedSpecs =
-    let
-      initialList =
-        let
-          pluginList = lib.pipe specs [
-            (lib.mapAttrsToList (
-              name: value:
-              if builtins.isList value.data then
-                {
-                  inherit name value;
-                  type = "parent";
-                }
-              else
-                {
-                  inherit name value;
-                  type = "spec";
-                }
-            ))
-            (lib.concatMap (
-              item:
-              if item.type == "parent" then
-                [
-                  (
-                    item
-                    // {
-                      value = item.value // {
-                        data = null;
-                      };
-                    }
-                  )
-                ]
-                ++ map (child: {
-                  name = item.name;
-                  value = child;
-                  type = "spec";
-                }) item.value.data
-              else
-                [ item ]
-            ))
-          ];
-          mappingFunctions = lib.pipe specMaps [
-            (wlib.dag.unwrapSort "specMaps DAL")
-            (builtins.filter (v: (v.enable or true)))
-            (map (v: v.data))
-          ];
-        in
-        lib.pipe pluginList mappingFunctions;
-    in
-    lib.pipe initialList [
+  mappedSpecs = lib.pipe specs (
+    [
+      (lib.mapAttrsToList (
+        name: value:
+        if builtins.isList value.data then
+          {
+            inherit name value;
+            type = "parent";
+          }
+        else
+          {
+            inherit name value;
+            type = "spec";
+          }
+      ))
+      (lib.concatMap (
+        item:
+        if item.type == "parent" then
+          [
+            (
+              item
+              // {
+                value = item.value // {
+                  data = null;
+                };
+              }
+            )
+          ]
+          ++ map (child: {
+            name = item.name;
+            value = child;
+            type = "spec";
+          }) item.value.data
+        else
+          [ item ]
+      ))
+    ]
+    ++ (lib.pipe specMaps [
+      (wlib.dag.unwrapSort "specMaps DAL")
+      (builtins.filter (v: (v.enable or true)))
+      (map (v: v.data))
+    ])
+    ++ [
       (builtins.filter (v: v ? name && v ? value && v ? type))
       (lib.partition (v: v.type == "parent"))
       (
@@ -146,7 +140,8 @@ let
       )
       (builtins.filter (v: if v ? enable then v.enable else true))
       (wlib.dag.unwrapSort "config and plugin DAG")
-    ];
+    ]
+  );
 
   getNameFromSpec =
     v:
